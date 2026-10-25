@@ -1,0 +1,13 @@
+{
+  "name": "studygit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Git-inspired collaborative study planner (MERN)",
+  "scripts": {
+    "dev:client": "npm --prefix client run dev",
+    "dev:server": "npm --prefix server run dev"
+  },
+  "keywords": ["mern", "study-planner", "git-inspired", "education"],
+  "author": "",
+  "license": "ISC"
+}
