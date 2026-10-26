@@ -31,11 +31,11 @@ export default function Sidebar({ isOpen, onClose }) {
 
       {/* Sidebar container */}
       <aside
-        className={`fixed inset-y-14 left-0 z-20 w-64 transform border-r border-git-border bg-git-canvas px-3 py-4 transition-transform duration-150 ease-in-out md:static md:translate-x-0 ${
+        className={`fixed top-14 bottom-0 left-0 z-20 w-64 transform border-r border-git-border bg-git-canvas px-3 py-4 overflow-y-auto transition-transform duration-150 ease-in-out md:translate-x-0 md:z-10 ${
           isOpen ? 'translate-x-0 shadow-lg md:shadow-none' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <div className="flex h-full flex-col">
+        <div className="flex min-h-full flex-col">
           <div className="px-2.5 pb-2 text-[11px] font-semibold uppercase tracking-wider text-git-textSubtle">
             Navigation
           </div>

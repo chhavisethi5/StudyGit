@@ -275,8 +275,8 @@ export default function ExplorePage() {
 
       {/* Loading Skeleton */}
       {isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
             <div
               key={i}
               className="rounded-lg border border-git-border bg-white p-4 space-y-3 animate-pulse shadow-2xs"
@@ -336,7 +336,7 @@ export default function ExplorePage() {
 
       {/* Roadmaps Grid */}
       {!isLoading && !error && roadmaps.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {roadmaps.map((item) => {
             const moduleCount = item.modules ? item.modules.length : 0;
             let topicCount = 0;

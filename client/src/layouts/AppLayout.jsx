@@ -15,11 +15,11 @@ export default function AppLayout() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white text-git-text">
+    <div className="h-screen flex flex-col bg-white text-git-text overflow-hidden">
       <Navbar onToggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
-      <div className="flex flex-1">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 md:px-8 max-w-5xl">
+        <main className="flex-1 md:ml-64 min-w-0 overflow-y-auto px-4 py-6 sm:px-6 md:px-8">
           <Outlet />
         </main>
       </div>
