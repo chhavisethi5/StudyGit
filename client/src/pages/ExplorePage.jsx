@@ -17,9 +17,16 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { getRoadmaps } from '../api/roadmapApi';
+import { useAuth } from '../context/AuthContext';
+import AuthPromptModal from '../components/AuthPromptModal';
 
 export default function ExplorePage() {
+  const { isAuthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Auth prompt modal state for unauthenticated clicks
+  const [selectedRoadmapForAuth, setSelectedRoadmapForAuth] = useState(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Search and filter state synced with URL search params
   const initialQ = searchParams.get('q') || '';
@@ -127,6 +134,14 @@ export default function ExplorePage() {
       universityFilter.trim() ||
       semesterFilter.trim()
   );
+
+  const handleRoadmapClick = (e, item) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      setSelectedRoadmapForAuth(item);
+      setIsAuthModalOpen(true);
+    }
+  };
 
   return (
     <div className="space-y-5 pb-10">
@@ -357,6 +372,7 @@ export default function ExplorePage() {
               <Link
                 key={item._id}
                 to={`/explore/${item._id}`}
+                onClick={(e) => handleRoadmapClick(e, item)}
                 className="group flex flex-col justify-between rounded-lg border border-git-border bg-white p-4 shadow-2xs hover:border-git-indigo hover:shadow-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-git-indigo"
               >
                 <div className="space-y-2.5">
@@ -475,6 +491,14 @@ export default function ExplorePage() {
           </button>
         </div>
       )}
+
+      {/* Login / Signup prompt modal for logged-out visitors */}
+      <AuthPromptModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        roadmap={selectedRoadmapForAuth}
+        targetPath={selectedRoadmapForAuth ? `/explore/${selectedRoadmapForAuth._id}` : '/explore'}
+      />
     </div>
   );
 }

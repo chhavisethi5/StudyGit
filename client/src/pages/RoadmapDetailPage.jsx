@@ -22,6 +22,9 @@ import {
   GitPullRequest,
   Check,
   CalendarRange,
+  Lock,
+  LogIn,
+  Plus,
 } from 'lucide-react';
 import { getRoadmapById, updateTopicCompletion } from '../api/roadmapApi';
 import { useAuth } from '../context/AuthContext';
@@ -48,7 +51,7 @@ export default function RoadmapDetailPage() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [roadmap, setRoadmap] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,9 +90,14 @@ export default function RoadmapDetailPage() {
       }
     };
 
-    if (id) {
+    if (!authLoading && !isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (id && isAuthenticated) {
       loadRoadmap();
-    } else {
+    } else if (!id) {
       setError('Invalid or missing roadmap identifier');
       setIsLoading(false);
     }
@@ -97,10 +105,10 @@ export default function RoadmapDetailPage() {
     return () => {
       isMounted = false;
     };
-  }, [id]);
+  }, [id, isAuthenticated, authLoading]);
 
   // Loading Skeleton State
-  if (isLoading) {
+  if (authLoading || (isLoading && isAuthenticated)) {
     return (
       <div className="space-y-6 animate-pulse">
         <div className="h-4 w-48 bg-git-canvas rounded" />
@@ -116,6 +124,66 @@ export default function RoadmapDetailPage() {
         <div className="space-y-3">
           <div className="h-24 bg-git-canvas rounded-lg border border-git-border" />
           <div className="h-24 bg-git-canvas rounded-lg border border-git-border" />
+        </div>
+      </div>
+    );
+  }
+
+  // Unauthenticated Visitor Sign-In Prompt State
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-xl mx-auto py-10 px-4 space-y-5">
+        <nav aria-label="Breadcrumb" className="flex items-center space-x-1.5 text-xs text-git-textMuted">
+          <Link to="/explore" className="hover:text-git-text inline-flex items-center space-x-1 transition-colors">
+            <Compass className="h-3.5 w-3.5 text-git-indigo" />
+            <span>Explore Roadmaps</span>
+          </Link>
+          <ChevronRight className="h-3 w-3 text-git-textSubtle" />
+          <span className="text-git-text font-medium truncate">Authentication Required</span>
+        </nav>
+
+        <div className="rounded-xl border border-git-border bg-white p-8 text-center shadow-2xs space-y-4">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-git-indigoSubtle border border-git-indigo/20 text-git-indigo">
+            <Lock className="h-6 w-6" />
+          </div>
+
+          <div className="space-y-1.5">
+            <h1 className="text-lg font-bold tracking-tight text-git-text">
+              Sign in to view this roadmap
+            </h1>
+            <p className="text-xs text-git-textMuted max-w-sm mx-auto leading-relaxed">
+              Full syllabus roadmaps with verified lecture resources, milestone checklists, and personal fork schedules are available to registered StudyGit members.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <Link
+              to="/login"
+              state={{ from: location.pathname }}
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 rounded-md bg-git-indigo px-4 py-2 text-xs font-semibold text-white hover:bg-git-indigoHover shadow-2xs transition-colors"
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              <span>Log in to continue</span>
+            </Link>
+            <Link
+              to="/register"
+              state={{ from: location.pathname }}
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 rounded-md bg-git-green px-4 py-2 text-xs font-semibold text-white hover:bg-git-greenHover border border-git-greenHover shadow-2xs transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Create free account</span>
+            </Link>
+          </div>
+
+          <div className="pt-3 border-t border-git-borderMuted">
+            <Link
+              to="/explore"
+              className="text-xs text-git-textSubtle hover:text-git-indigo inline-flex items-center space-x-1 transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Back to Explore Roadmaps</span>
+            </Link>
+          </div>
         </div>
       </div>
     );

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { GitBranch, AlertCircle, UserPlus, Lock, Mail, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -13,6 +14,11 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  const from =
+    location.state?.from?.pathname ||
+    (typeof location.state?.from === 'string' ? location.state.from : null) ||
+    '/my-roadmaps';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,7 +52,7 @@ export default function RegisterPage() {
         email: email.trim(),
         password,
       });
-      navigate('/my-roadmaps', { replace: true });
+      navigate(from, { replace: true });
     } catch (err) {
       setErrorMessage(
         err.message || 'Registration failed. Please check your information and try again.'

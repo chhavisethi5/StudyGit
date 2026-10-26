@@ -46,6 +46,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 <NavLink
                   key={item.to}
                   to={item.to}
+                  end={item.to === '/'}
                   onClick={onClose}
                   className={({ isActive }) =>
                     `group relative flex items-center space-x-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-git-indigo ${

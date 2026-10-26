@@ -13,7 +13,10 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  const from = location.state?.from?.pathname || '/my-roadmaps';
+  const from =
+    location.state?.from?.pathname ||
+    (typeof location.state?.from === 'string' ? location.state.from : null) ||
+    '/my-roadmaps';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
