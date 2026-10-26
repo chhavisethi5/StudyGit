@@ -9,6 +9,7 @@ const connectDB = require('./config/db');
 const healthRoutes = require('./routes/healthRoutes');
 const roadmapRoutes = require('./routes/roadmapRoutes');
 const authRoutes = require('./routes/authRoutes');
+const pullRequestRoutes = require('./routes/pullRequestRoutes');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -27,6 +28,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/roadmaps', roadmapRoutes);
+app.use('/api/pull-requests', pullRequestRoutes);
 
 // Catch 404 routes and forward to error handler
 app.use(notFoundHandler);

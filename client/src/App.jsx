@@ -11,6 +11,7 @@ import MyRoadmapsPage from './pages/MyRoadmapsPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import PullRequestsPage from './pages/PullRequestsPage';
+import PullRequestDetailPage from './pages/PullRequestDetailPage';
 import ActivityPage from './pages/ActivityPage';
 
 export default function App() {
@@ -32,8 +33,9 @@ export default function App() {
             {/* Authentication routes */}
             <Route path="login" element={<LoginPage />} />
             <Route path="register" element={<RegisterPage />} />
-            {/* Future workflow placeholders */}
+            {/* Workflow routes */}
             <Route path="pull-requests" element={<PullRequestsPage />} />
+            <Route path="pull-requests/:id" element={<PullRequestDetailPage />} />
             <Route path="activity" element={<ActivityPage />} />
             {/* Fallback route */}
             <Route path="*" element={<OverviewPage />} />

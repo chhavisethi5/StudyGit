@@ -411,11 +411,12 @@ const forkRoadmap = async (req, res, next) => {
       }
     }
 
-    // Clone modules, topics, and resources into completely new subdocuments
+    // Clone modules, topics, and resources into subdocuments preserving references to originals
     const clonedModules = (source.modules || []).map((mod, mIdx) => ({
       title: mod.title,
       description: mod.description,
       order: mod.order ?? mIdx,
+      originalModuleId: mod.originalModuleId || mod._id,
       topics: (mod.topics || []).map((topic, tIdx) => ({
         title: topic.title,
         description: topic.description,
@@ -424,11 +425,13 @@ const forkRoadmap = async (req, res, next) => {
         isCompleted: false,
         completedAt: null,
         scheduledDate: null,
+        originalTopicId: topic.originalTopicId || topic._id,
         resources: (topic.resources || []).map((res) => ({
           title: res.title,
           url: res.url,
           type: res.type,
           description: res.description,
+          originalResourceId: res.originalResourceId || res._id,
         })),
       })),
     }));

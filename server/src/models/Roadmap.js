@@ -41,6 +41,11 @@ const ResourceSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    // Reference to original resource if this is a cloned fork
+    originalResourceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
   },
   { _id: true }
 );
@@ -83,6 +88,11 @@ const TopicSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Reference to original topic if this is a cloned fork
+    originalTopicId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
   },
   { _id: true }
 );
@@ -107,6 +117,11 @@ const ModuleSchema = new mongoose.Schema(
     topics: {
       type: [TopicSchema],
       default: [],
+    },
+    // Reference to original module if this is a cloned fork
+    originalModuleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
     },
   },
   { _id: true }

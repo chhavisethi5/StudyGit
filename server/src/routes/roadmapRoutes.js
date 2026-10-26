@@ -9,6 +9,7 @@ const {
   forkRoadmap,
   updateTopicCompletion,
 } = require('../controllers/roadmapController');
+const { getRoadmapPullRequests } = require('../controllers/pullRequestController');
 const validateObjectId = require('../middleware/validateObjectId');
 const checkDbConnection = require('../middleware/checkDbConnection');
 const { protect, optionalAuth } = require('../middleware/authMiddleware');
@@ -37,6 +38,14 @@ router.patch(
   validateObjectId('topicId'),
   protect,
   updateTopicCompletion
+);
+
+// Pull Requests targeting this Roadmap
+router.get(
+  '/:roadmapId/pull-requests',
+  validateObjectId('roadmapId'),
+  protect,
+  getRoadmapPullRequests
 );
 
 // Document routes with ObjectId validation

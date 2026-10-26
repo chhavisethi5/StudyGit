@@ -19,12 +19,14 @@ import {
   CalendarDays,
   Pencil,
   GitFork,
+  GitPullRequest,
   Check,
   CalendarRange,
 } from 'lucide-react';
 import { getRoadmapById, updateTopicCompletion } from '../api/roadmapApi';
 import { useAuth } from '../context/AuthContext';
 import ForkRoadmapModal from '../components/ForkRoadmapModal';
+import ProposeChangesModal from '../components/ProposeChangesModal';
 
 // Resource type icon helper
 const getResourceIcon = (type) => {
@@ -52,6 +54,7 @@ export default function RoadmapDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isForkModalOpen, setIsForkModalOpen] = useState(false);
+  const [isProposeModalOpen, setIsProposeModalOpen] = useState(false);
   const [updatingTopicId, setUpdatingTopicId] = useState(null);
 
   // Check if just navigated from creation, update, or fork flow
@@ -359,8 +362,21 @@ export default function RoadmapDetailPage() {
             </div>
 
             {/* Action buttons */}
-            <div className="flex items-center space-x-2 shrink-0 pt-0.5">
-              {/* Fork button */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0 pt-0.5">
+              {/* Propose changes button (Fork owner only) */}
+              {roadmap.parentRoadmapId && isOwner && (
+                <button
+                  type="button"
+                  onClick={() => setIsProposeModalOpen(true)}
+                  className="inline-flex items-center space-x-1.5 rounded-md border border-git-indigo/30 bg-git-indigoSubtle px-3 py-1.5 text-xs font-semibold text-git-indigoText hover:bg-git-indigo/15 shadow-2xs transition-colors shrink-0"
+                  title="Propose syllabus resource additions or corrections to the upstream roadmap"
+                >
+                  <GitPullRequest className="h-3.5 w-3.5 text-git-indigo" />
+                  <span>Propose changes</span>
+                </button>
+              )}
+
+              {/* Fork button (on original roadmap or non-owned forks) */}
               <button
                 type="button"
                 onClick={() => {
@@ -376,6 +392,16 @@ export default function RoadmapDetailPage() {
                 <GitFork className="h-3.5 w-3.5 text-git-indigo" />
                 <span>Fork Roadmap</span>
               </button>
+
+              {/* View Pull Requests link */}
+              <Link
+                to="/pull-requests"
+                className="inline-flex items-center space-x-1.5 rounded-md border border-git-border bg-white px-3 py-1.5 text-xs font-medium text-git-text hover:bg-git-canvas hover:border-git-borderMuted shadow-2xs transition-colors shrink-0"
+                title="View pull requests"
+              >
+                <GitPullRequest className="h-3.5 w-3.5 text-git-textSubtle" />
+                <span>Pull Requests</span>
+              </Link>
 
               {/* Edit button (Owner only) */}
               {isOwner && (
@@ -707,6 +733,15 @@ export default function RoadmapDetailPage() {
         onClose={() => setIsForkModalOpen(false)}
         roadmap={roadmap}
       />
+
+      {/* Propose Changes Modal */}
+      {roadmap && roadmap.parentRoadmapId && isOwner && (
+        <ProposeChangesModal
+          isOpen={isProposeModalOpen}
+          onClose={() => setIsProposeModalOpen(false)}
+          fork={roadmap}
+        />
+      )}
     </div>
   );
 }
