@@ -31,6 +31,8 @@ const getRoadmaps = async (req, res, next) => {
       tags,
       q,
       search,
+      sort,
+      sortBy,
       page = 1,
       limit = 10,
     } = req.query;
@@ -75,6 +77,17 @@ const getRoadmaps = async (req, res, next) => {
     const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
     const skip = (pageNum - 1) * limitNum;
 
+    // Sorting options: popular (upvotes desc), newest (created desc), forked (fork count desc)
+    const sortParam = (sort || sortBy || 'popular').toLowerCase().trim();
+    let sortCriteria = { upvoteCount: -1, createdAt: -1 };
+    if (sortParam === 'newest') {
+      sortCriteria = { createdAt: -1 };
+    } else if (sortParam === 'forked' || sortParam === 'most-forked' || sortParam === 'most_forked') {
+      sortCriteria = { forkCount: -1, createdAt: -1 };
+    } else if (sortParam === 'popular') {
+      sortCriteria = { upvoteCount: -1, createdAt: -1 };
+    }
+
     // Execute query with total count and safe owner population
     let roadmapQuery = Roadmap.find(query);
     if (typeof roadmapQuery.populate === 'function') {
@@ -83,7 +96,7 @@ const getRoadmaps = async (req, res, next) => {
 
     const [roadmaps, total] = await Promise.all([
       roadmapQuery
-        .sort({ createdAt: -1 })
+        .sort(sortCriteria)
         .skip(skip)
         .limit(limitNum)
         .lean(),
@@ -92,13 +105,31 @@ const getRoadmaps = async (req, res, next) => {
 
     const totalPages = Math.ceil(total / limitNum) || 1;
 
+    // Format output with accurate upvote counts, fork counts, and current user vote status
+    const currentUserId = req.user?._id ? req.user._id.toString() : null;
+    const formattedRoadmaps = roadmaps.map((r) => {
+      const upvotesArr = Array.isArray(r.upvotes) ? r.upvotes : [];
+      const upvoteCount = typeof r.upvoteCount === 'number' ? r.upvoteCount : upvotesArr.length;
+      const forkCount = typeof r.forkCount === 'number' ? r.forkCount : 0;
+      const hasUpvoted = Boolean(
+        currentUserId && upvotesArr.some((uid) => uid && uid.toString() === currentUserId)
+      );
+
+      return {
+        ...r,
+        upvoteCount,
+        forkCount,
+        hasUpvoted,
+      };
+    });
+
     res.status(200).json({
       success: true,
-      count: roadmaps.length,
+      count: formattedRoadmaps.length,
       total,
       page: pageNum,
       totalPages,
-      data: roadmaps,
+      data: formattedRoadmaps,
     });
   } catch (error) {
     next(error);
@@ -131,10 +162,21 @@ const getMyRoadmaps = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .lean();
 
+    const formattedRoadmaps = roadmaps.map((r) => {
+      const upvotesArr = Array.isArray(r.upvotes) ? r.upvotes : [];
+      const upvoteCount = typeof r.upvoteCount === 'number' ? r.upvoteCount : upvotesArr.length;
+      const forkCount = typeof r.forkCount === 'number' ? r.forkCount : 0;
+      return {
+        ...r,
+        upvoteCount,
+        forkCount,
+      };
+    });
+
     res.status(200).json({
       success: true,
-      count: roadmaps.length,
-      data: roadmaps,
+      count: formattedRoadmaps.length,
+      data: formattedRoadmaps,
     });
   } catch (error) {
     next(error);
@@ -183,9 +225,24 @@ const getRoadmapById = async (req, res, next) => {
       }
     }
 
+    const currentUserId = req.user?._id ? req.user._id.toString() : null;
+    const upvotesArr = Array.isArray(roadmap.upvotes) ? roadmap.upvotes : [];
+    const upvoteCount = typeof roadmap.upvoteCount === 'number' ? roadmap.upvoteCount : upvotesArr.length;
+    const forkCount = typeof roadmap.forkCount === 'number' ? roadmap.forkCount : 0;
+    const hasUpvoted = Boolean(
+      currentUserId && upvotesArr.some((uid) => uid && uid.toString() === currentUserId)
+    );
+
+    const formattedRoadmap = {
+      ...roadmap,
+      upvoteCount,
+      forkCount,
+      hasUpvoted,
+    };
+
     res.status(200).json({
       success: true,
-      data: roadmap,
+      data: formattedRoadmap,
     });
   } catch (error) {
     next(error);
@@ -258,6 +315,9 @@ const updateRoadmap = async (req, res, next) => {
       'parentRoadmapId',
       'version',
       '_id',
+      'upvotes',
+      'upvoteCount',
+      'forkCount',
     ];
 
     const updates = { ...req.body };
@@ -355,6 +415,17 @@ const deleteRoadmap = async (req, res, next) => {
         error: 'Not Found',
         message: `Roadmap with ID '${id}' does not exist`,
       });
+    }
+
+    // If deleted roadmap was a fork, decrement source fork count
+    if (deletedRoadmap.parentRoadmapId) {
+      try {
+        await Roadmap.findByIdAndUpdate(deletedRoadmap.parentRoadmapId, {
+          $inc: { forkCount: -1 },
+        });
+      } catch {
+        // Non-blocking cleanup
+      }
     }
 
     res.status(200).json({
@@ -496,6 +567,13 @@ const forkRoadmap = async (req, res, next) => {
 
     const newFork = await Roadmap.create(forkData);
 
+    // Increment fork counter on parent source roadmap
+    try {
+      await Roadmap.findByIdAndUpdate(source._id, { $inc: { forkCount: 1 } });
+    } catch {
+      // Non-blocking
+    }
+
     // Retrieve populated document
     let query = Roadmap.findById(newFork._id);
     if (query && typeof query.populate === 'function') {
@@ -595,6 +673,106 @@ const updateTopicCompletion = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Toggle upvote on an original public roadmap
+ * @route   POST /api/roadmaps/:id/upvote
+ * @access  Private (requires protect middleware)
+ */
+const toggleUpvote = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body || {};
+
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required to upvote roadmaps.',
+      });
+    }
+
+    const roadmap = await Roadmap.findById(id);
+
+    if (!roadmap) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: `Roadmap with ID '${id}' does not exist`,
+      });
+    }
+
+    // Permission check: Only public roadmaps can be upvoted
+    if (roadmap.visibility !== 'public') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Only public roadmaps can be upvoted.',
+      });
+    }
+
+    // Architectural constraint: Upvotes attach to original roadmaps, not personal forks
+    if (roadmap.parentRoadmapId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Upvotes can only be cast on original public roadmaps, not personal forks.',
+      });
+    }
+
+    // Permission check: Users cannot upvote their own roadmaps
+    const ownerId = getOwnerIdString(roadmap.ownerId);
+    if (ownerId && ownerId === req.user._id.toString()) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'You cannot upvote your own roadmap.',
+      });
+    }
+
+    if (!Array.isArray(roadmap.upvotes)) {
+      roadmap.upvotes = [];
+    }
+
+    const userIdStr = req.user._id.toString();
+    const existingIndex = roadmap.upvotes.findIndex(
+      (uid) => uid && uid.toString() === userIdStr
+    );
+    const alreadyVoted = existingIndex !== -1;
+
+    let newVotedState;
+    if (action === 'upvote') {
+      if (!alreadyVoted) {
+        roadmap.upvotes.push(req.user._id);
+      }
+      newVotedState = true;
+    } else if (action === 'remove' || action === 'unvote') {
+      if (alreadyVoted) {
+        roadmap.upvotes.splice(existingIndex, 1);
+      }
+      newVotedState = false;
+    } else {
+      // Default: Toggle vote state
+      if (alreadyVoted) {
+        roadmap.upvotes.splice(existingIndex, 1);
+        newVotedState = false;
+      } else {
+        roadmap.upvotes.push(req.user._id);
+        newVotedState = true;
+      }
+    }
+
+    roadmap.upvoteCount = roadmap.upvotes.length;
+    await roadmap.save();
+
+    res.status(200).json({
+      success: true,
+      message: newVotedState ? 'Upvote added' : 'Upvote removed',
+      data: {
+        roadmapId: roadmap._id,
+        upvoteCount: roadmap.upvoteCount,
+        hasUpvoted: newVotedState,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getRoadmaps,
   getMyRoadmaps,
@@ -604,5 +782,6 @@ module.exports = {
   deleteRoadmap,
   forkRoadmap,
   updateTopicCompletion,
+  toggleUpvote,
 };
 

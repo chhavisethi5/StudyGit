@@ -25,8 +25,9 @@ import {
   Lock,
   LogIn,
   Plus,
+  ArrowBigUp,
 } from 'lucide-react';
-import { getRoadmapById, updateTopicCompletion } from '../api/roadmapApi';
+import { getRoadmapById, updateTopicCompletion, toggleUpvoteRoadmap } from '../api/roadmapApi';
 import { useAuth } from '../context/AuthContext';
 import ForkRoadmapModal from '../components/ForkRoadmapModal';
 import ProposeChangesModal from '../components/ProposeChangesModal';
@@ -59,6 +60,7 @@ export default function RoadmapDetailPage() {
   const [isForkModalOpen, setIsForkModalOpen] = useState(false);
   const [isProposeModalOpen, setIsProposeModalOpen] = useState(false);
   const [updatingTopicId, setUpdatingTopicId] = useState(null);
+  const [isUpvoting, setIsUpvoting] = useState(false);
 
   // Check if just navigated from creation, update, or fork flow
   const newlyCreated = location.state?.newlyCreated;
@@ -324,6 +326,55 @@ export default function RoadmapDetailPage() {
     }
   };
 
+  // Handle upvoting on detail page
+  const handleToggleUpvote = async () => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location.pathname } });
+      return;
+    }
+
+    if (isOwner || isUpvoting || !roadmap) return;
+    setIsUpvoting(true);
+
+    const previousState = {
+      hasUpvoted: Boolean(roadmap.hasUpvoted),
+      upvoteCount: Number(roadmap.upvoteCount) || 0,
+    };
+
+    const nextHasUpvoted = !previousState.hasUpvoted;
+    const nextUpvoteCount = nextHasUpvoted
+      ? previousState.upvoteCount + 1
+      : Math.max(0, previousState.upvoteCount - 1);
+
+    // Optimistic UI update without full reload
+    setRoadmap((prev) => ({
+      ...prev,
+      hasUpvoted: nextHasUpvoted,
+      upvoteCount: nextUpvoteCount,
+    }));
+
+    try {
+      const response = await toggleUpvoteRoadmap(roadmap._id);
+      if (response && response.data) {
+        setRoadmap((prev) => ({
+          ...prev,
+          hasUpvoted: response.data.hasUpvoted,
+          upvoteCount: response.data.upvoteCount,
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to toggle upvote on detail page:', err);
+      // Rollback on failure
+      setRoadmap((prev) => ({
+        ...prev,
+        hasUpvoted: previousState.hasUpvoted,
+        upvoteCount: previousState.upvoteCount,
+      }));
+    } finally {
+      setIsUpvoting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Breadcrumb Navigation */}
@@ -431,6 +482,46 @@ export default function RoadmapDetailPage() {
 
             {/* Action buttons */}
             <div className="flex flex-wrap items-center gap-2 shrink-0 pt-0.5">
+              {/* Upvote button (Original public roadmaps only) */}
+              {!roadmap.parentRoadmapId && roadmap.visibility === 'public' && (
+                <button
+                  type="button"
+                  onClick={handleToggleUpvote}
+                  disabled={isOwner || isUpvoting}
+                  title={
+                    isOwner
+                      ? 'You cannot upvote your own roadmap'
+                      : !isAuthenticated
+                      ? 'Sign in to upvote this roadmap'
+                      : roadmap.hasUpvoted
+                      ? 'Remove upvote'
+                      : 'Upvote this roadmap'
+                  }
+                  aria-label={
+                    roadmap.hasUpvoted
+                      ? `Remove upvote (${roadmap.upvoteCount || 0} votes)`
+                      : `Upvote roadmap (${roadmap.upvoteCount || 0} votes)`
+                  }
+                  className={`inline-flex items-center space-x-1.5 rounded-md px-3 py-1.5 text-xs font-semibold border transition-all shadow-2xs shrink-0 ${
+                    roadmap.hasUpvoted
+                      ? 'bg-git-indigoSubtle border-git-indigo text-git-indigoText'
+                      : 'bg-white border-git-border text-git-text hover:bg-git-canvas hover:border-git-indigo/40'
+                  } ${isOwner ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <ArrowBigUp
+                    className={`h-4 w-4 ${
+                      roadmap.hasUpvoted
+                        ? 'fill-git-indigo text-git-indigo'
+                        : 'text-git-textSubtle'
+                    }`}
+                  />
+                  <span>{roadmap.hasUpvoted ? 'Upvoted' : 'Upvote'}</span>
+                  <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-git-canvas border border-git-borderMuted">
+                    {roadmap.upvoteCount || 0}
+                  </span>
+                </button>
+              )}
+
               {/* Propose changes button (Fork owner only) */}
               {roadmap.parentRoadmapId && isOwner && (
                 <button
@@ -509,7 +600,7 @@ export default function RoadmapDetailPage() {
         )}
 
         {/* Metrics Bar */}
-        <div className="pt-3 border-t border-git-borderMuted grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div className="pt-3 border-t border-git-borderMuted grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-xs">
           <div className="flex items-center space-x-2">
             <Layers className="h-4 w-4 text-git-indigo" />
             <div>
@@ -535,18 +626,18 @@ export default function RoadmapDetailPage() {
           </div>
 
           <div className="flex items-center space-x-2">
-            <CalendarDays className="h-4 w-4 text-git-textSubtle" />
+            <ArrowBigUp className="h-4 w-4 text-git-indigo" />
             <div>
-              <div className="font-semibold text-git-text">
-                {roadmap.createdAt
-                  ? new Date(roadmap.createdAt).toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })
-                  : 'Recent'}
-              </div>
-              <div className="text-[11px] text-git-textSubtle">Published Date</div>
+              <div className="font-semibold text-git-text">{roadmap.upvoteCount || 0}</div>
+              <div className="text-[11px] text-git-textSubtle">Community Upvotes</div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <GitFork className="h-4 w-4 text-git-indigo" />
+            <div>
+              <div className="font-semibold text-git-text">{roadmap.forkCount || 0}</div>
+              <div className="text-[11px] text-git-textSubtle">Forks Created</div>
             </div>
           </div>
         </div>

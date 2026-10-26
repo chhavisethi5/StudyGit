@@ -15,30 +15,39 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
+  ArrowBigUp,
+  ArrowUpDown,
+  GitFork,
 } from 'lucide-react';
-import { getRoadmaps } from '../api/roadmapApi';
+import { getRoadmaps, toggleUpvoteRoadmap } from '../api/roadmapApi';
 import { useAuth } from '../context/AuthContext';
 import AuthPromptModal from '../components/AuthPromptModal';
 
 export default function ExplorePage() {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Auth prompt modal state for unauthenticated clicks
   const [selectedRoadmapForAuth, setSelectedRoadmapForAuth] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalAction, setAuthModalAction] = useState(null);
 
-  // Search and filter state synced with URL search params
+  // In-flight upvote request tracking
+  const [upvotingRoadmapId, setUpvotingRoadmapId] = useState(null);
+
+  // Search, filter, and sort state synced with URL search params
   const initialQ = searchParams.get('q') || '';
   const initialSubject = searchParams.get('subject') || '';
   const initialUniversity = searchParams.get('university') || '';
   const initialSemester = searchParams.get('semester') || '';
+  const initialSort = searchParams.get('sort') || 'popular';
   const initialPage = parseInt(searchParams.get('page') || '1', 10);
 
   const [searchTerm, setSearchTerm] = useState(initialQ);
   const [subjectFilter, setSubjectFilter] = useState(initialSubject);
   const [universityFilter, setUniversityFilter] = useState(initialUniversity);
   const [semesterFilter, setSemesterFilter] = useState(initialSemester);
+  const [sortOption, setSortOption] = useState(initialSort);
   const [currentPage, setCurrentPage] = useState(initialPage);
 
   // Data fetching state
@@ -57,6 +66,7 @@ export default function ExplorePage() {
       const params = {
         page: currentPage,
         limit: 9,
+        sort: sortOption,
       };
 
       if (searchTerm.trim()) params.q = searchTerm.trim();
@@ -75,7 +85,7 @@ export default function ExplorePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, subjectFilter, universityFilter, semesterFilter, currentPage]);
+  }, [searchTerm, subjectFilter, universityFilter, semesterFilter, sortOption, currentPage]);
 
   // Sync URL query parameters whenever filters change
   useEffect(() => {
@@ -84,10 +94,11 @@ export default function ExplorePage() {
     if (subjectFilter.trim()) params.set('subject', subjectFilter.trim());
     if (universityFilter.trim()) params.set('university', universityFilter.trim());
     if (semesterFilter.trim()) params.set('semester', semesterFilter.trim());
+    if (sortOption && sortOption !== 'popular') params.set('sort', sortOption);
     if (currentPage > 1) params.set('page', currentPage.toString());
 
     setSearchParams(params, { replace: true });
-  }, [searchTerm, subjectFilter, universityFilter, semesterFilter, currentPage, setSearchParams]);
+  }, [searchTerm, subjectFilter, universityFilter, semesterFilter, sortOption, currentPage, setSearchParams]);
 
   // Debounced search trigger (350ms) to avoid spamming the backend API
   useEffect(() => {
@@ -119,6 +130,12 @@ export default function ExplorePage() {
     setCurrentPage(1);
   };
 
+  const handleSortChange = (newSort) => {
+    if (newSort === sortOption) return;
+    setSortOption(newSort);
+    setCurrentPage(1);
+  };
+
   const handleClearFilters = () => {
     setSearchTerm('');
     setSubjectFilter('');
@@ -139,7 +156,85 @@ export default function ExplorePage() {
     if (!isAuthenticated) {
       e.preventDefault();
       setSelectedRoadmapForAuth(item);
+      setAuthModalAction(null);
       setIsAuthModalOpen(true);
+    }
+  };
+
+  // Toggle upvote on roadmap card
+  const handleToggleUpvote = async (e, item) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Logged-out visitor click -> Prompt login
+    if (!isAuthenticated) {
+      setSelectedRoadmapForAuth(item);
+      setAuthModalAction('upvote');
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    // Author cannot upvote their own roadmap
+    const currentUserId = user?._id || user?.id;
+    const ownerId = item.ownerId?._id || item.ownerId;
+    if (currentUserId && ownerId && currentUserId.toString() === ownerId.toString()) {
+      return;
+    }
+
+    if (upvotingRoadmapId === item._id) return;
+    setUpvotingRoadmapId(item._id);
+
+    // Save previous state for rollback on error
+    const previousState = {
+      hasUpvoted: Boolean(item.hasUpvoted),
+      upvoteCount: Number(item.upvoteCount) || 0,
+    };
+
+    const nextHasUpvoted = !previousState.hasUpvoted;
+    const nextUpvoteCount = nextHasUpvoted
+      ? previousState.upvoteCount + 1
+      : Math.max(0, previousState.upvoteCount - 1);
+
+    // Optimistic UI update without full reload
+    setRoadmaps((prev) =>
+      prev.map((r) =>
+        r._id === item._id
+          ? { ...r, hasUpvoted: nextHasUpvoted, upvoteCount: nextUpvoteCount }
+          : r
+      )
+    );
+
+    try {
+      const response = await toggleUpvoteRoadmap(item._id);
+      if (response && response.data) {
+        setRoadmaps((prev) =>
+          prev.map((r) =>
+            r._id === item._id
+              ? {
+                  ...r,
+                  hasUpvoted: response.data.hasUpvoted,
+                  upvoteCount: response.data.upvoteCount,
+                }
+              : r
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Failed to toggle upvote:', err);
+      // Revert optimistic update on failure
+      setRoadmaps((prev) =>
+        prev.map((r) =>
+          r._id === item._id
+            ? {
+                ...r,
+                hasUpvoted: previousState.hasUpvoted,
+                upvoteCount: previousState.upvoteCount,
+              }
+            : r
+        )
+      );
+    } finally {
+      setUpvotingRoadmapId(null);
     }
   };
 
@@ -200,51 +295,96 @@ export default function ExplorePage() {
           )}
         </div>
 
-        {/* Row 2: Secondary Filter Controls */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <div className="flex items-center space-x-1 text-xs text-git-textSubtle font-medium mr-1">
-            <Filter className="h-3.5 w-3.5" />
-            <span>Filters:</span>
+        {/* Row 2: Secondary Filter Controls & Sort Selector */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1 border-t border-git-borderMuted">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center space-x-1 text-xs text-git-textSubtle font-medium mr-1">
+              <Filter className="h-3.5 w-3.5" />
+              <span>Filters:</span>
+            </div>
+
+            {/* Subject Filter */}
+            <input
+              type="text"
+              value={subjectFilter}
+              onChange={handleSubjectChange}
+              placeholder="Filter subject..."
+              className="h-7 w-36 rounded-md border border-git-border bg-white px-2.5 text-xs text-git-text placeholder-git-textSubtle focus:border-git-indigo focus:outline-none focus:ring-1 focus:ring-git-indigo transition-colors"
+            />
+
+            {/* University Filter */}
+            <input
+              type="text"
+              value={universityFilter}
+              onChange={handleUniversityChange}
+              placeholder="Filter university..."
+              className="h-7 w-36 rounded-md border border-git-border bg-white px-2.5 text-xs text-git-text placeholder-git-textSubtle focus:border-git-indigo focus:outline-none focus:ring-1 focus:ring-git-indigo transition-colors"
+            />
+
+            {/* Semester Filter */}
+            <input
+              type="text"
+              value={semesterFilter}
+              onChange={handleSemesterChange}
+              placeholder="Filter semester..."
+              className="h-7 w-32 rounded-md border border-git-border bg-white px-2.5 text-xs text-git-text placeholder-git-textSubtle focus:border-git-indigo focus:outline-none focus:ring-1 focus:ring-git-indigo transition-colors"
+            />
+
+            {/* Clear Filters Button */}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="inline-flex items-center space-x-1 rounded-md border border-git-border bg-git-canvas px-2.5 py-1 text-xs font-medium text-git-textMuted hover:bg-white hover:text-git-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-git-indigo transition-colors"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>Clear filters</span>
+              </button>
+            )}
           </div>
 
-          {/* Subject Filter */}
-          <input
-            type="text"
-            value={subjectFilter}
-            onChange={handleSubjectChange}
-            placeholder="Filter subject..."
-            className="h-7 w-36 rounded-md border border-git-border bg-white px-2.5 text-xs text-git-text placeholder-git-textSubtle focus:border-git-indigo focus:outline-none focus:ring-1 focus:ring-git-indigo transition-colors"
-          />
-
-          {/* University Filter */}
-          <input
-            type="text"
-            value={universityFilter}
-            onChange={handleUniversityChange}
-            placeholder="Filter university..."
-            className="h-7 w-36 rounded-md border border-git-border bg-white px-2.5 text-xs text-git-text placeholder-git-textSubtle focus:border-git-indigo focus:outline-none focus:ring-1 focus:ring-git-indigo transition-colors"
-          />
-
-          {/* Semester Filter */}
-          <input
-            type="text"
-            value={semesterFilter}
-            onChange={handleSemesterChange}
-            placeholder="Filter semester..."
-            className="h-7 w-32 rounded-md border border-git-border bg-white px-2.5 text-xs text-git-text placeholder-git-textSubtle focus:border-git-indigo focus:outline-none focus:ring-1 focus:ring-git-indigo transition-colors"
-          />
-
-          {/* Clear Filters Button */}
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="inline-flex items-center space-x-1 rounded-md border border-git-border bg-git-canvas px-2.5 py-1 text-xs font-medium text-git-textMuted hover:bg-white hover:text-git-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-git-indigo transition-colors ml-auto"
-            >
-              <RotateCcw className="h-3 w-3" />
-              <span>Clear filters</span>
-            </button>
-          )}
+          {/* Sort Selector: Popular, Newest, Most Forked */}
+          <div className="flex items-center space-x-2 shrink-0">
+            <span className="text-xs text-git-textSubtle font-medium flex items-center space-x-1">
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              <span>Sort:</span>
+            </span>
+            <div className="inline-flex rounded-md border border-git-border bg-git-canvas p-0.5 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => handleSortChange('popular')}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  sortOption === 'popular'
+                    ? 'bg-white text-git-indigoText border border-git-border/60 shadow-2xs font-semibold'
+                    : 'text-git-textMuted hover:text-git-text'
+                }`}
+              >
+                Popular
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSortChange('newest')}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  sortOption === 'newest'
+                    ? 'bg-white text-git-indigoText border border-git-border/60 shadow-2xs font-semibold'
+                    : 'text-git-textMuted hover:text-git-text'
+                }`}
+              >
+                Newest
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSortChange('forked')}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  sortOption === 'forked'
+                    ? 'bg-white text-git-indigoText border border-git-border/60 shadow-2xs font-semibold'
+                    : 'text-git-textMuted hover:text-git-text'
+                }`}
+              >
+                Most Forked
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -373,7 +513,7 @@ export default function ExplorePage() {
                 key={item._id}
                 to={`/explore/${item._id}`}
                 onClick={(e) => handleRoadmapClick(e, item)}
-                className="group flex flex-col justify-between rounded-lg border border-git-border bg-white p-4 shadow-2xs hover:border-git-indigo hover:shadow-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-git-indigo"
+                className="group flex flex-col justify-between rounded-lg border border-git-border bg-white p-4 shadow-2xs hover:border-git-indigo hover:shadow-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-git-indigo min-w-0 overflow-hidden"
               >
                 <div className="space-y-2.5">
                   {/* Top Badges Row */}
@@ -381,7 +521,7 @@ export default function ExplorePage() {
                     <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium text-git-indigoText bg-git-indigoSubtle border border-git-indigo/20 truncate max-w-[150px]">
                       {item.subject}
                     </span>
-                    <span className="text-[10px] font-mono text-git-textSubtle">
+                    <span className="text-[10px] font-mono text-git-textSubtle shrink-0">
                       v{item.version || 1}
                     </span>
                   </div>
@@ -421,7 +561,7 @@ export default function ExplorePage() {
                       {item.tags.slice(0, 3).map((t, idx) => (
                         <span
                           key={idx}
-                          className="inline-flex items-center rounded px-1.5 py-0.2 text-[10px] font-mono text-git-textMuted bg-git-canvas border border-git-borderMuted"
+                          className="inline-flex items-center rounded px-1.5 py-0.2 text-[10px] font-mono text-git-textMuted bg-git-canvas border border-git-borderMuted truncate max-w-[100px]"
                         >
                           #{t}
                         </span>
@@ -435,26 +575,88 @@ export default function ExplorePage() {
                   )}
                 </div>
 
-                {/* Footer Metrics Row */}
-                <div className="mt-4 pt-3 border-t border-git-borderMuted flex items-center justify-between text-[11px] text-git-textSubtle">
-                  <div className="flex items-center space-x-2.5">
-                    <span className="flex items-center space-x-1">
-                      <Layers className="h-3 w-3 text-git-indigo" />
-                      <span>{moduleCount} {moduleCount === 1 ? 'module' : 'modules'}</span>
+                {/* Footer Metrics & Upvote Action Section */}
+                <div className="mt-4 pt-3 border-t border-git-borderMuted flex flex-col gap-2.5">
+                  {/* Row 1: Course Info Badges & Metrics */}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-git-textSubtle">
+                    <span className="inline-flex items-center space-x-1">
+                      <Layers className="h-3 w-3 text-git-indigo shrink-0" />
+                      <span>{moduleCount} {moduleCount === 1 ? 'mod' : 'mods'}</span>
                     </span>
                     <span>•</span>
-                    <span className="flex items-center space-x-1">
-                      <BookOpen className="h-3 w-3 text-git-green" />
+                    <span className="inline-flex items-center space-x-1">
+                      <BookOpen className="h-3 w-3 text-git-green shrink-0" />
                       <span>{topicCount} topics</span>
                     </span>
+                    {totalHours > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="inline-flex items-center space-x-1 font-mono text-git-textMuted">
+                          <Clock className="h-3 w-3 text-git-amber shrink-0" />
+                          <span>{totalHours}h</span>
+                        </span>
+                      </>
+                    )}
                   </div>
 
-                  {totalHours > 0 && (
-                    <span className="flex items-center space-x-1 font-mono text-git-textMuted">
-                      <Clock className="h-3 w-3 text-git-amber" />
-                      <span>{totalHours}h</span>
-                    </span>
-                  )}
+                  {/* Row 2: Fork Count & Upvote Action Button */}
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-git-borderMuted/50">
+                    <div className="flex items-center space-x-1.5 text-[11px] text-git-textMuted font-mono min-w-0">
+                      {Number(item.forkCount) > 0 ? (
+                        <span className="inline-flex items-center space-x-1 truncate" title={`${item.forkCount} personal forks`}>
+                          <GitFork className="h-3 w-3 text-git-indigo shrink-0" />
+                          <span className="truncate">{item.forkCount} {item.forkCount === 1 ? 'fork' : 'forks'}</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-git-textSubtle font-sans truncate">0 forks</span>
+                      )}
+                    </div>
+
+                    {/* Upvote Button with Live Counter */}
+                    {(() => {
+                      const currentUserId = user?._id || user?.id;
+                      const ownerId = item.ownerId?._id || item.ownerId;
+                      const isAuthor = Boolean(
+                        currentUserId && ownerId && currentUserId.toString() === ownerId.toString()
+                      );
+
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleUpvote(e, item)}
+                          disabled={isAuthor || upvotingRoadmapId === item._id}
+                          title={
+                            isAuthor
+                              ? 'You cannot upvote your own roadmap'
+                              : !isAuthenticated
+                              ? 'Sign in to upvote this roadmap'
+                              : item.hasUpvoted
+                              ? 'Remove upvote'
+                              : 'Upvote this roadmap'
+                          }
+                          aria-label={
+                            item.hasUpvoted
+                              ? `Remove upvote (${item.upvoteCount || 0} votes)`
+                              : `Upvote roadmap (${item.upvoteCount || 0} votes)`
+                          }
+                          className={`inline-flex items-center space-x-1 rounded-md px-2 py-0.5 text-xs font-medium border transition-colors shadow-2xs shrink-0 ${
+                            item.hasUpvoted
+                              ? 'bg-git-indigoSubtle border-git-indigo text-git-indigoText font-semibold'
+                              : 'bg-git-canvas border-git-border text-git-textMuted hover:border-git-indigo/40 hover:text-git-indigo hover:bg-white'
+                          } ${isAuthor ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <ArrowBigUp
+                            className={`h-3.5 w-3.5 shrink-0 ${
+                              item.hasUpvoted
+                                ? 'fill-git-indigo text-git-indigo'
+                                : 'text-git-textSubtle group-hover:text-git-indigo'
+                            }`}
+                          />
+                          <span className="font-mono text-[11px] font-semibold">{item.upvoteCount || 0}</span>
+                        </button>
+                      );
+                    })()}
+                  </div>
                 </div>
               </Link>
             );
@@ -495,7 +697,11 @@ export default function ExplorePage() {
       {/* Login / Signup prompt modal for logged-out visitors */}
       <AuthPromptModal
         isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setAuthModalAction(null);
+        }}
+        actionType={authModalAction}
         roadmap={selectedRoadmapForAuth}
         targetPath={selectedRoadmapForAuth ? `/explore/${selectedRoadmapForAuth._id}` : '/explore'}
       />

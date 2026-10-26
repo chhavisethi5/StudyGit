@@ -54,6 +54,7 @@ export const getRoadmaps = async (params = {}) => {
   if (params.university && params.university.trim()) query.set('university', params.university.trim());
   if (params.semester && params.semester.trim()) query.set('semester', params.semester.trim());
   if (params.tag && params.tag.trim()) query.set('tag', params.tag.trim());
+  if (params.sort && params.sort.trim()) query.set('sort', params.sort.trim());
   if (params.page && params.page > 1) query.set('page', params.page.toString());
   if (params.limit && params.limit !== 10) query.set('limit', params.limit.toString());
 
@@ -200,6 +201,35 @@ export const updateTopicCompletion = async (roadmapId, topicId, isCompleted) => 
       body: JSON.stringify({ isCompleted }),
     }
   );
+
+  return handleResponse(response);
+};
+
+/**
+ * Toggle or set upvote status on a public roadmap (Requires authentication)
+ * @param {string} id - Roadmap ObjectId
+ * @param {string} [action] - Optional explicit action ('upvote' or 'remove')
+ * @returns {Promise<{ success: boolean, message: string, data: { roadmapId: string, upvoteCount: number, hasUpvoted: boolean } }>}
+ */
+export const toggleUpvoteRoadmap = async (id, action) => {
+  if (!id) {
+    throw new Error('Roadmap ID is required to upvote');
+  }
+
+  const options = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    credentials: 'include',
+  };
+
+  if (action) {
+    options.body = JSON.stringify({ action });
+  }
+
+  const response = await fetch(`${BASE_URL}/${encodeURIComponent(id)}/upvote`, options);
 
   return handleResponse(response);
 };

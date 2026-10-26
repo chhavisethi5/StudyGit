@@ -23,6 +23,29 @@ const connectDB = async () => {
       serverSelectionTimeoutMS: 5000,
     });
     console.log(`[MongoDB] Connected to database: ${conn.connection.host}`);
+
+    // Ensure default popularity counters on existing documents and sync fork counts
+    try {
+      const Roadmap = mongoose.models.Roadmap || require('../models/Roadmap');
+      await Promise.all([
+        Roadmap.updateMany({ upvoteCount: { $exists: false } }, { $set: { upvoteCount: 0 } }),
+        Roadmap.updateMany({ upvotes: { $exists: false } }, { $set: { upvotes: [] } }),
+        Roadmap.updateMany({ forkCount: { $exists: false } }, { $set: { forkCount: 0 } }),
+      ]);
+
+      const forkAgg = await Roadmap.aggregate([
+        { $match: { parentRoadmapId: { $ne: null } } },
+        { $group: { _id: '$parentRoadmapId', totalForks: { $sum: 1 } } },
+      ]);
+      for (const item of forkAgg) {
+        if (item._id) {
+          await Roadmap.updateOne({ _id: item._id }, { $set: { forkCount: item.totalForks } });
+        }
+      }
+    } catch (syncErr) {
+      console.warn(`[MongoDB] Notice: Automatic counter synchronization deferred: ${syncErr.message}`);
+    }
+
     return conn;
   } catch (error) {
     // Redact any potential credentials in error message to prevent accidental leakage in logs

@@ -2,10 +2,19 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Lock, X, LogIn, Plus, BookOpen, Layers } from 'lucide-react';
 
-export default function AuthPromptModal({ isOpen, onClose, roadmap, targetPath }) {
+export default function AuthPromptModal({ isOpen, onClose, roadmap, targetPath, actionType, title, description }) {
   if (!isOpen) return null;
 
   const destination = targetPath || (roadmap ? `/explore/${roadmap._id}` : '/explore');
+  const isUpvote = actionType === 'upvote';
+
+  const modalTitle = title || (isUpvote ? 'Sign in to upvote roadmap' : 'Sign in to view roadmap');
+  const modalDescription =
+    description ||
+    (isUpvote
+      ? 'Sign in or register for a free StudyGit account to upvote community roadmaps and highlight recommended study modules.'
+      : 'Full curriculum roadmaps with lecture resources, milestone checklists, and personal fork schedules are available to StudyGit community members. Sign in or register below to access this roadmap.');
+  const ctaLabel = isUpvote ? 'Log in to upvote' : 'Log in to view roadmap';
 
   return (
     <div
@@ -24,7 +33,7 @@ export default function AuthPromptModal({ isOpen, onClose, roadmap, targetPath }
             <div className="flex h-6 w-6 items-center justify-center rounded bg-git-indigoSubtle text-git-indigo border border-git-indigo/20">
               <Lock className="h-3.5 w-3.5" />
             </div>
-            <h2 className="text-sm font-semibold text-git-text">Sign in to view roadmap</h2>
+            <h2 className="text-sm font-semibold text-git-text">{modalTitle}</h2>
           </div>
           <button
             type="button"
@@ -62,7 +71,7 @@ export default function AuthPromptModal({ isOpen, onClose, roadmap, targetPath }
           )}
 
           <p className="text-xs text-git-textMuted leading-relaxed">
-            Full curriculum roadmaps with lecture resources, milestone checklists, and personal fork schedules are available to StudyGit community members. Sign in or register below to access this roadmap.
+            {modalDescription}
           </p>
 
           {/* Action CTAs */}
@@ -73,7 +82,7 @@ export default function AuthPromptModal({ isOpen, onClose, roadmap, targetPath }
               className="w-full inline-flex items-center justify-center space-x-1.5 rounded-md bg-git-indigo px-3 py-2 text-xs font-semibold text-white hover:bg-git-indigoHover shadow-2xs transition-colors"
             >
               <LogIn className="h-3.5 w-3.5" />
-              <span>Log in to view roadmap</span>
+              <span>{ctaLabel}</span>
             </Link>
 
             <Link

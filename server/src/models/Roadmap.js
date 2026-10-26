@@ -225,6 +225,31 @@ const RoadmapSchema = new mongoose.Schema(
       ],
       default: [],
     },
+
+    // Upvotes & Popularity Metrics
+    upvotes: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+      ],
+      default: [],
+    },
+    upvoteCount: {
+      type: Number,
+      default: 0,
+      min: [0, 'Upvote count cannot be negative'],
+      index: true,
+    },
+
+    // Fork Popularity Metric
+    forkCount: {
+      type: Number,
+      default: 0,
+      min: [0, 'Fork count cannot be negative'],
+      index: true,
+    },
   },
   {
     timestamps: true, // creates createdAt and updatedAt
@@ -238,12 +263,14 @@ RoadmapSchema.index({
   description: 'text',
 });
 
-// Compound and Secondary Indexes for efficient query filtering
+// Compound and Secondary Indexes for efficient query filtering and sorting
 RoadmapSchema.index({ visibility: 1, subject: 1 });
 RoadmapSchema.index({ visibility: 1, university: 1 });
 RoadmapSchema.index({ visibility: 1, semester: 1 });
 RoadmapSchema.index({ visibility: 1, tags: 1 });
 RoadmapSchema.index({ createdAt: -1 });
+RoadmapSchema.index({ visibility: 1, upvoteCount: -1, createdAt: -1 });
+RoadmapSchema.index({ visibility: 1, forkCount: -1, createdAt: -1 });
 
 const Roadmap = mongoose.models.Roadmap || mongoose.model('Roadmap', RoadmapSchema);
 

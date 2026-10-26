@@ -233,7 +233,7 @@ export default function MyRoadmapsPage() {
               <Link
                 key={item._id}
                 to={`/explore/${item._id}`}
-                className="group flex flex-col justify-between rounded-lg border border-git-border bg-white p-4 shadow-2xs hover:border-git-indigo hover:shadow-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-git-indigo"
+                className="group flex flex-col justify-between rounded-lg border border-git-border bg-white p-4 shadow-2xs hover:border-git-indigo hover:shadow-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-git-indigo min-w-0 overflow-hidden"
               >
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between text-xs">
@@ -317,8 +317,8 @@ export default function MyRoadmapsPage() {
                   )}
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-git-borderMuted flex items-center justify-between text-[11px] text-git-textSubtle">
-                  <div className="flex items-center space-x-2.5">
+                <div className="mt-4 pt-3 border-t border-git-borderMuted flex flex-wrap items-center justify-between gap-2 text-[11px] text-git-textSubtle">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="flex items-center space-x-1">
                       <Layers className="h-3 w-3 text-git-indigo" />
                       <span>{moduleCount} {moduleCount === 1 ? 'module' : 'modules'}</span>

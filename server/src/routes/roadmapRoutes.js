@@ -8,6 +8,7 @@ const {
   deleteRoadmap,
   forkRoadmap,
   updateTopicCompletion,
+  toggleUpvote,
 } = require('../controllers/roadmapController');
 const { getRoadmapPullRequests } = require('../controllers/pullRequestController');
 const validateObjectId = require('../middleware/validateObjectId');
@@ -25,8 +26,13 @@ router.get('/mine', protect, getMyRoadmaps);
 
 // Collection routes
 router.route('/')
-  .get(getRoadmaps)
+  .get(optionalAuth, getRoadmaps)
   .post(protect, createRoadmap);
+
+// Upvote Route
+router.route('/:id/upvote')
+  .post(validateObjectId('id'), protect, toggleUpvote)
+  .delete(validateObjectId('id'), protect, toggleUpvote);
 
 // Fork & Personalize Route
 router.post('/:id/fork', validateObjectId('id'), protect, forkRoadmap);

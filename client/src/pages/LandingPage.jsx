@@ -603,14 +603,14 @@ export default function LandingPage() {
                           handleRoadmapCardClick(item);
                         }
                       }}
-                      className="group cursor-pointer flex flex-col justify-between rounded-lg border border-git-border bg-white p-4 shadow-2xs hover:border-git-indigo hover:shadow-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-git-indigo"
+                      className="group cursor-pointer flex flex-col justify-between rounded-lg border border-git-border bg-white p-4 shadow-2xs hover:border-git-indigo hover:shadow-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-git-indigo min-w-0 overflow-hidden"
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between text-xs">
                           <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium text-git-indigoText bg-git-indigoSubtle border border-git-indigo/20 truncate max-w-[150px]">
                             {item.subject}
                           </span>
-                          <span className="text-[10px] font-mono text-git-textSubtle">
+                          <span className="text-[10px] font-mono text-git-textSubtle shrink-0">
                             v{item.version || 1}
                           </span>
                         </div>
@@ -637,7 +637,7 @@ export default function LandingPage() {
                         </p>
                       </div>
 
-                      <div className="mt-4 pt-3 border-t border-git-borderMuted flex items-center justify-between text-[11px] text-git-textSubtle">
+                      <div className="mt-4 pt-3 border-t border-git-borderMuted flex flex-wrap items-center justify-between gap-2 text-[11px] text-git-textSubtle">
                         <span className="flex items-center space-x-1">
                           <Layers className="h-3 w-3 text-git-indigo" />
                           <span>{moduleCount} {moduleCount === 1 ? 'module' : 'modules'}</span>
